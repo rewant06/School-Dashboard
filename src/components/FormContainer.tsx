@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma"; // Import Prisma client to interact with the database.
 import FormModal from "./FormModal"; // Import the FormModal component to render the form modal.
 import { getAuth } from "firebase/auth"; // Import Firebase Authentication to manage user authentication.
-import { jwtDecode } from "jwt-decode"; // Import a library to decode Firebase ID tokens to access custom claims.
+import {jwtDecode} from "jwt-decode"; // Import a library to decode Firebase ID tokens to access custom claims.
 
 export type FormContainerProps = {
   table:
@@ -18,12 +18,17 @@ export type FormContainerProps = {
     | "event"
     | "announcement"; // Define the possible table names for the form.
   type: "create" | "update" | "delete"; // Define the type of operation (create, update, or delete).
-  data?: any; // Optional data for the form.
+  data?: Record<string, unknown>; // Optional data for the form, typed as a generic object.
   id?: number | string; // Optional ID for the form (used for update or delete operations).
 };
 
+type DecodedToken = {
+  role?: string; // Define the structure of the decoded token. Add other claims if needed.
+  [key: string]: unknown; // Allow additional claims if necessary.
+};
+
 const FormContainer = async ({ table, type, data, id }: FormContainerProps) => {
-  let relatedData = {}; // Initialize an empty object to store related data for the form.
+  let relatedData: Record<string, unknown> = {}; // Initialize an empty object to store related data for the form.
 
   const auth = getAuth(); // Get the Firebase Auth instance.
   const user = auth.currentUser; // Get the currently logged-in user.
@@ -33,7 +38,7 @@ const FormContainer = async ({ table, type, data, id }: FormContainerProps) => {
   }
 
   const token = await user.getIdToken(); // Get the Firebase ID token for the logged-in user.
-  const decodedToken: any = jwtDecode(token); // Decode the token to access custom claims.
+  const decodedToken: DecodedToken = jwtDecode<DecodedToken>(token); // Decode the token to access custom claims.
   const role = decodedToken.role; // Extract the user's role from the custom claims.
   const currentUserId = user.uid; // Get the Firebase UID of the logged-in user.
 

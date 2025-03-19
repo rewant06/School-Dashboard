@@ -1,6 +1,11 @@
 import { getAuth } from "firebase/auth"; // Import Firebase Authentication to manage user authentication.
-import { jwtDecode } from "jwt-decode"; // Correctly import the named export for decoding JWT tokens
+import {jwtDecode} from "jwt-decode"; // Import a library to decode Firebase ID tokens to access custom claims.
 import Image from "next/image"; // Import Next.js Image component for optimized image rendering.
+
+type DecodedToken = {
+  role?: string; // Define the structure of the decoded token. Add other claims if needed.
+  [key: string]: unknown; // Allow additional claims if necessary.
+};
 
 const Navbar = async () => {
   const auth = getAuth(); // Get the Firebase Auth instance.
@@ -11,7 +16,7 @@ const Navbar = async () => {
   }
 
   const token = await user.getIdToken(); // Get the Firebase ID token for the logged-in user.
-  const decodedToken: any = jwtDecode(token); // Decode the token to access custom claims.
+  const decodedToken: DecodedToken = jwtDecode<DecodedToken>(token); // Decode the token to access custom claims.
   const role = decodedToken.role; // Extract the user's role from the custom claims.
 
   return (

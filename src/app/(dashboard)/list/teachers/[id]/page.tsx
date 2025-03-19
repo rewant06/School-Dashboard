@@ -5,7 +5,7 @@ import FormContainer from "@/components/FormContainer"; // Importing a form cont
 import Performance from "@/components/Performance"; // Importing the Performance component to display teacher performance metrics.
 import prisma from "@/lib/prisma"; // Importing Prisma client for database queries.
 import { getAuth } from "firebase/auth"; // Importing Firebase Authentication to manage user authentication.
-import jwtDecode from "jwt-decode"; // Importing a library to decode Firebase ID tokens to access custom claims.
+import { jwtDecode } from "jwt-decode"; // Correctly import the named export for decoding JWT tokens
 import { Teacher } from "@prisma/client"; // Importing the Teacher type from Prisma for type safety.
 import Image from "next/image"; // Importing Next.js Image component for optimized image rendering.
 import Link from "next/link"; // Importing Next.js Link component for client-side navigation.
