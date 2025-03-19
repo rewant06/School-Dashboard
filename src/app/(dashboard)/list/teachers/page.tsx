@@ -7,13 +7,22 @@ import { Class, Prisma, Subject, Teacher } from "@prisma/client"; // Importing P
 import Image from "next/image"; // Importing Next.js Image component for optimized image rendering.
 import Link from "next/link"; // Importing Next.js Link component for client-side navigation.
 import { ITEM_PER_PAGE } from "@/lib/settings"; // Importing a constant for the number of items to display per page.
-import { auth } from "@clerk/nextjs/server"; // Importing Clerk's server-side authentication for user session management.
+import { getAuth } from "firebase/auth"; // Importing Firebase Authentication to manage user authentication.
+import jwtDecode from "jwt-decode"; // Importing a library to decode Firebase ID tokens to access custom claims.
 
 type TeacherList = Teacher & { subjects: Subject[] } & { classes: Class[] }; // Defining a type that combines Teacher, Subject, and Class data.
 
 const TeacherListPage = async ({ searchParams }: { searchParams: { [key: string]: string | undefined } }) => { // Main component for the teacher list page.
-  const { sessionClaims } = auth(); // Fetching session claims (e.g., user metadata) from Clerk.
-  const role = (sessionClaims?.metadata as { role?: string })?.role; // Extracting the user's role from session metadata.
+  const auth = getAuth(); // Get the Firebase Auth instance.
+  const user = auth.currentUser; // Get the currently logged-in user.
+
+  if (!user) {
+    throw new Error("User not authenticated"); // Throw an error if no user is logged in.
+  }
+
+  const token = await user.getIdToken(); // Get the Firebase ID token for the logged-in user.
+  const decodedToken: any = jwtDecode(token); // Decode the token to access custom claims.
+  const role = decodedToken.role; // Extract the user's role from the custom claims.
 
   const columns = [ // Defining the table columns.
     {
@@ -152,7 +161,7 @@ const TeacherListPage = async ({ searchParams }: { searchParams: { [key: string]
               <Image src="/sort.png" alt="" width={14} height={14} /> {/* Sort button */}
             </button>
             {role === "admin" && (
-              <FormContainer table="teacher" type="create" /> {/* Create teacher button (admin only) */}
+              <FormContainer table="teacher" type="create" /> 
             )}
           </div>
         </div>

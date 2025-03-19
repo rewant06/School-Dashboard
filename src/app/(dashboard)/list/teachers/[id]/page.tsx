@@ -4,15 +4,24 @@ import BigCalendar from "@/components/BigCalender"; // Importing the BigCalendar
 import FormContainer from "@/components/FormContainer"; // Importing a form container for handling CRUD operations (e.g., update teacher info).
 import Performance from "@/components/Performance"; // Importing the Performance component to display teacher performance metrics.
 import prisma from "@/lib/prisma"; // Importing Prisma client for database queries.
-import { auth } from "@clerk/nextjs/server"; // Importing Clerk's server-side authentication for user session management.
+import { getAuth } from "firebase/auth"; // Importing Firebase Authentication to manage user authentication.
+import jwtDecode from "jwt-decode"; // Importing a library to decode Firebase ID tokens to access custom claims.
 import { Teacher } from "@prisma/client"; // Importing the Teacher type from Prisma for type safety.
 import Image from "next/image"; // Importing Next.js Image component for optimized image rendering.
 import Link from "next/link"; // Importing Next.js Link component for client-side navigation.
 import { notFound } from "next/navigation"; // Importing a function to handle 404 errors.
 
 const SingleTeacherPage = async ({ params: { id } }: { params: { id: string } }) => { // Main component for displaying a single teacher's details.
-  const { sessionClaims } = auth(); // Fetching session claims (e.g., user metadata) from Clerk.
-  const role = (sessionClaims?.metadata as { role?: string })?.role; // Extracting the user's role from session metadata.
+  const auth = getAuth(); // Get the Firebase Auth instance.
+  const user = auth.currentUser; // Get the currently logged-in user.
+
+  if (!user) {
+    throw new Error("User not authenticated"); // Throw an error if no user is logged in.
+  }
+
+  const token = await user.getIdToken(); // Get the Firebase ID token for the logged-in user.
+  const decodedToken: any = jwtDecode(token); // Decode the token to access custom claims.
+  const role = decodedToken.role; // Extract the user's role from the custom claims.
 
   const teacher: // Defining the type of the teacher object fetched from the database.
     | (Teacher & {
