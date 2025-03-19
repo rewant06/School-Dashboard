@@ -1,16 +1,17 @@
-import { currentUser } from "@clerk/nextjs/server";
-import Image from "next/image";
-import Link from "next/link";
+import { getAuth } from "firebase/auth"; // Import Firebase Authentication to manage user authentication.
+import { jwtDecode } from "jwt-decode"; // Correctly import the named export for decoding JWT tokens.
+import Image from "next/image"; // Import Next.js Image component for optimized image rendering.
+import Link from "next/link"; // Import Next.js Link component for client-side navigation.
 
 const menuItems = [
   {
-    title: "MENU",
+    title: "MENU", // Section title for the menu.
     items: [
       {
-        icon: "/home.png",
-        label: "Home",
-        href: "/",
-        visible: ["admin", "teacher", "student", "parent"],
+        icon: "/home.png", // Icon for the menu item.
+        label: "Home", // Label for the menu item.
+        href: "/", // Link for the menu item.
+        visible: ["admin", "teacher", "student", "parent"], // Roles that can see this menu item.
       },
       {
         icon: "/teacher.png",
@@ -93,7 +94,7 @@ const menuItems = [
     ],
   },
   {
-    title: "OTHER",
+    title: "OTHER", // Section title for other menu items.
     items: [
       {
         icon: "/profile.png",
@@ -118,25 +119,34 @@ const menuItems = [
 ];
 
 const Menu = async () => {
-  const user = await currentUser();
-  const role = user?.publicMetadata.role as string;
+  const auth = getAuth(); // Get the Firebase Auth instance.
+  const user = auth.currentUser; // Get the currently logged-in user.
+
+  if (!user) {
+    throw new Error("User not authenticated"); // Throw an error if no user is logged in.
+  }
+
+  const token = await user.getIdToken(); // Get the Firebase ID token for the logged-in user.
+  const decodedToken: any = jwtDecode(token); // Decode the token to access custom claims.
+  const role = decodedToken.role; // Extract the user's role from the custom claims.
+
   return (
-    <div className="mt-4 text-sm">
-      {menuItems.map((i) => (
-        <div className="flex flex-col gap-2" key={i.title}>
+    <div className="mt-4 text-sm"> {/* Container for the menu */}
+      {menuItems.map((i) => ( // Iterate over the menu sections.
+        <div className="flex flex-col gap-2" key={i.title}> {/* Container for each menu section */}
           <span className="hidden lg:block text-gray-400 font-light my-4">
-            {i.title}
+            {i.title} {/* Display the section title */}
           </span>
-          {i.items.map((item) => {
-            if (item.visible.includes(role)) {
+          {i.items.map((item) => { // Iterate over the menu items in the section.
+            if (item.visible.includes(role)) { // Check if the user's role is allowed to see the menu item.
               return (
                 <Link
-                  href={item.href}
-                  key={item.label}
+                  href={item.href} // Link to the menu item's destination.
+                  key={item.label} // Unique key for the menu item.
                   className="flex items-center justify-center lg:justify-start gap-4 text-gray-500 py-2 md:px-2 rounded-md hover:bg-lamaSkyLight"
                 >
-                  <Image src={item.icon} alt="" width={20} height={20} />
-                  <span className="hidden lg:block">{item.label}</span>
+                  <Image src={item.icon} alt="" width={20} height={20} /> {/* Display the menu item's icon */}
+                  <span className="hidden lg:block">{item.label}</span> {/* Display the menu item's label */}
                 </Link>
               );
             }
@@ -147,4 +157,4 @@ const Menu = async () => {
   );
 };
 
-export default Menu;
+export default Menu; // Export the Menu component as the default export.
