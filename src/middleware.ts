@@ -1,11 +1,15 @@
-import { auth } from "firebase-admin"; // Import the Firebase Admin SDK's `auth` module to handle authentication.
+import { initializeApp, getApps, cert } from "firebase-admin/app"; // Import Firebase Admin initialization methods.
+import { getAuth } from "firebase-admin/auth"; // Import the Firebase Admin Auth module.
 import { NextRequest, NextResponse } from "next/server"; // Import Next.js middleware utilities for handling requests and responses.
 
 // Initialize Firebase Admin if not already initialized
-if (!auth.apps.length) { // Check if Firebase Admin has already been initialized to avoid reinitialization errors.
-  auth.initializeApp({
-    credential: auth.applicationDefault(), // Use the default credentials (e.g., from GOOGLE_APPLICATION_CREDENTIALS env variable).
-    // Alternatively, you can use `auth.cert()` with a service account key for more control.
+if (!getApps().length) { // Check if Firebase Admin has already been initialized to avoid reinitialization errors.
+  initializeApp({
+    credential: cert({
+      projectId: process.env.FIREBASE_PROJECT_ID, // Firebase project ID from environment variables.
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL, // Firebase client email from environment variables.
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"), // Firebase private key from environment variables.
+    }),
   });
 }
 
@@ -25,12 +29,12 @@ export async function middleware(req: NextRequest) { // Middleware function to h
 
   try {
     // Verify the Firebase ID token
-    const decodedToken = await auth().verifyIdToken(token); // Verify the token using Firebase Admin SDK and decode its contents.
+    const decodedToken = await getAuth().verifyIdToken(token); // Verify the token using Firebase Admin SDK and decode its contents.
     const userRole = decodedToken.role; // Extract the user's role from the token's custom claims (assuming `role` is set).
 
     // Check if the user has access to the requested route
     for (const [route, allowedRoles] of Object.entries(routeAccessMap)) { // Iterate through the route access map.
-      if (req.nextUrl.pathname.startsWith(route) && !allowedRoles.includes(userRole)) { 
+      if (req.nextUrl.pathname.startsWith(route) && !allowedRoles.includes(userRole)) {
         // If the requested route matches a restricted route and the user's role is not allowed:
         return NextResponse.redirect(new URL(`/${userRole}`, req.url)); // Redirect the user to their role-specific page.
       }
