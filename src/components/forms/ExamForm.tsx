@@ -6,31 +6,29 @@ import InputField from "../InputField";
 import {
   examSchema,
   ExamSchema,
-  subjectSchema,
-  SubjectSchema,
 } from "@/lib/formValidationSchemas";
 import {
   createExam,
-  createSubject,
   updateExam,
-  updateSubject,
 } from "@/lib/actions";
-import { useFormState } from "react-dom";
-import { Dispatch, SetStateAction, useEffect } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
+
+type Lesson = { id: number; name: string }; // Define the type for lessons
+type ExamFormProps = {
+  type: "create" | "update";
+  data?: ExamSchema; // Use the ExamSchema type for the data prop
+  setOpen: Dispatch<SetStateAction<boolean>>;
+  relatedData: { lessons: Lesson[] }; // Define the type for relatedData
+};
 
 const ExamForm = ({
   type,
   data,
   setOpen,
   relatedData,
-}: {
-  type: "create" | "update";
-  data?: any;
-  setOpen: Dispatch<SetStateAction<boolean>>;
-  relatedData?: any;
-}) => {
+}: ExamFormProps) => {
   const {
     register,
     handleSubmit,
@@ -39,19 +37,21 @@ const ExamForm = ({
     resolver: zodResolver(examSchema),
   });
 
-  // AFTER REACT 19 IT'LL BE USEACTIONSTATE
+  // Manage form state manually
+  const [state, setState] = useState({ success: false, error: false });
 
-  const [state, formAction] = useFormState(
-    type === "create" ? createExam : updateExam,
-    {
-      success: false,
-      error: false,
+  const onSubmit = handleSubmit(async (formData) => {
+    try {
+      if (type === "create") {
+        await createExam(formData); // Call createExam for creating an exam
+      } else {
+        await updateExam(formData); // Call updateExam for updating an exam
+      }
+      setState({ success: true, error: false }); // Set success state
+    } catch (error) {
+      console.error(error);
+      setState({ success: false, error: true }); // Set error state
     }
-  );
-
-  const onSubmit = handleSubmit((data) => {
-    console.log(data);
-    formAction(data);
   });
 
   const router = useRouter();
@@ -62,7 +62,7 @@ const ExamForm = ({
       setOpen(false);
       router.refresh();
     }
-  }, [state, router, type, setOpen]);
+  }, [state.success, router, type, setOpen]);
 
   const { lessons } = relatedData;
 
@@ -111,9 +111,9 @@ const ExamForm = ({
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full"
             {...register("lessonId")}
-            defaultValue={data?.teachers}
+            defaultValue={data?.lessonId} // Corrected defaultValue
           >
-            {lessons.map((lesson: { id: number; name: string }) => (
+            {lessons.map((lesson) => (
               <option value={lesson.id} key={lesson.id}>
                 {lesson.name}
               </option>
@@ -127,7 +127,7 @@ const ExamForm = ({
         </div>
       </div>
       {state.error && (
-        <span className="text-red-500">Something went wrong!</span>
+        <span className="text-red-500">Something went wrong! Please try again.</span>
       )}
       <button className="bg-blue-400 text-white p-2 rounded-md">
         {type === "create" ? "Create" : "Update"}

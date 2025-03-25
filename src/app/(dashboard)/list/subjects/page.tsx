@@ -117,7 +117,7 @@ const SubjectListPage = async ({
               <Image src="/sort.png" alt="" width={14} height={14} /> {/* Sort button */}
             </button>
             {role === "admin" && (
-              <FormContainer table="subject" type="create" /> {/* Create subject button (admin only) */}
+              <FormContainer table="subject" type="create" /> /* Create subject button (admin only) */
             )}
           </div>
         </div>

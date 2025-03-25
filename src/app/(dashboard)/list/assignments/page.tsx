@@ -1,22 +1,28 @@
-import FormContainer from "@/components/FormContainer"; // Importing a reusable form container for CRUD operations.
+import FormModal from "@/components/FormModal"; // Importing a reusable form modal for CRUD operations.
 import Pagination from "@/components/Pagination"; // Importing a pagination component for navigating through pages.
 import Table from "@/components/Table"; // Importing a reusable table component to display data.
 import TableSearch from "@/components/TableSearch"; // Importing a search bar component for filtering table data.
 import prisma from "@/lib/prisma"; // Importing Prisma client for database queries.
 import { ITEM_PER_PAGE } from "@/lib/settings"; // Importing a constant for the number of items per page.
-import { Class, Prisma, Teacher, Grade } from "@prisma/client"; // Importing Prisma types for type safety.
+import { Assignment, Class, Prisma, Subject, Teacher } from "@prisma/client"; // Importing Prisma types for type safety.
 import Image from "next/image"; // Importing Next.js Image component for optimized image rendering.
 import { getAuth } from "firebase/auth"; // Importing Firebase Authentication to manage user authentication.
-import { jwtDecode } from "jwt-decode"; // Importing a library to decode Firebase ID tokens to access custom claims.
+import {jwtDecode} from "jwt-decode"; // Importing a library to decode Firebase ID tokens to access custom claims.
 
-type ClassList = Class & { supervisor: Teacher; grade: Grade }; // Defining a type that combines Class, Teacher, and Grade data.
+type AssignmentList = Assignment & {
+  lesson: {
+    subject: Subject;
+    class: Class;
+    teacher: Teacher;
+  };
+};
 
 type DecodedToken = {
   role?: string; // Define the structure of the decoded token. Add other claims if needed.
   [key: string]: unknown; // Allow additional claims if necessary.
 };
 
-const ClassListPage = async ({
+const AssignmentListPage = async ({
   searchParams,
 }: {
   searchParams: { [key: string]: string | undefined }; // Defining the type for search parameters.
@@ -31,28 +37,28 @@ const ClassListPage = async ({
   const token = await user.getIdToken(); // Get the Firebase ID token for the logged-in user.
   const decodedToken: DecodedToken = jwtDecode<DecodedToken>(token); // Decode the token to access custom claims.
   const role = decodedToken.role; // Extract the user's role from the custom claims.
+  const currentUserId = user.uid; // Get the user's unique ID from Firebase.
 
   const columns = [
     {
-      header: "Class Name", // Column header.
+      header: "Subject Name", // Column header.
       accessor: "name", // Key to access data for this column.
     },
     {
-      header: "Capacity", // Column header.
-      accessor: "capacity", // Key to access data for this column.
+      header: "Class", // Column header.
+      accessor: "class", // Key to access data for this column.
+    },
+    {
+      header: "Teacher", // Column header.
+      accessor: "teacher", // Key to access data for this column.
       className: "hidden md:table-cell", // Hides this column on smaller screens.
     },
     {
-      header: "Grade", // Column header.
-      accessor: "grade", // Key to access data for this column.
+      header: "Due Date", // Column header.
+      accessor: "dueDate", // Key to access data for this column.
       className: "hidden md:table-cell", // Hides this column on smaller screens.
     },
-    {
-      header: "Supervisor", // Column header.
-      accessor: "supervisor", // Key to access data for this column.
-      className: "hidden md:table-cell", // Hides this column on smaller screens.
-    },
-    ...(role === "admin"
+    ...(role === "admin" || role === "teacher"
       ? [
           {
             header: "Actions", // Column header.
@@ -62,23 +68,25 @@ const ClassListPage = async ({
       : []),
   ];
 
-  const renderRow = (item: ClassList) => (
+  const renderRow = (item: AssignmentList) => (
     <tr
       key={item.id} // Unique key for each row.
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight" // Styling for the row.
     >
-      <td className="flex items-center gap-4 p-4">{item.name}</td> {/* Class name */}
-      <td className="hidden md:table-cell">{item.capacity}</td> {/* Class capacity */}
-      <td className="hidden md:table-cell">{item.grade?.level || "-"}</td> {/* Class grade */}
+      <td className="flex items-center gap-4 p-4">{item.lesson.subject.name}</td> {/* Subject name */}
+      <td>{item.lesson.class.name}</td> {/* Class name */}
       <td className="hidden md:table-cell">
-        {item.supervisor.name + " " + item.supervisor.surname} {/* Supervisor's full name */}
+        {item.lesson.teacher.name + " " + item.lesson.teacher.surname} {/* Teacher's full name */}
+      </td>
+      <td className="hidden md:table-cell">
+        {new Intl.DateTimeFormat("en-US").format(item.dueDate)} {/* Formatted due date */}
       </td>
       <td>
         <div className="flex items-center gap-2"> {/* Actions column */}
-          {role === "admin" && ( // If the user is an admin, show the update and delete buttons.
+          {(role === "admin" || role === "teacher") && ( // If the user is an admin or teacher, show the update and delete buttons.
             <>
-              <FormContainer table="class" type="update" data={item} /> {/* Update button */}
-              <FormContainer table="class" type="delete" id={item.id} /> {/* Delete button */}
+              <FormModal table="assignment" type="update" data={item} /> {/* Update button */}
+              <FormModal table="assignment" type="delete" id={item.id} /> {/* Delete button */}
             </>
           )}
         </div>
@@ -90,17 +98,24 @@ const ClassListPage = async ({
 
   const p = page ? parseInt(page) : 1; // Parsing the page number or defaulting to 1.
 
-  const query: Prisma.ClassWhereInput = {}; // Initializing a query object for filtering classes.
+  const query: Prisma.AssignmentWhereInput = {}; // Initializing a query object for filtering assignments.
+
+  query.lesson = {}; // Initializing the lesson filter.
 
   if (queryParams) { // Loop through query parameters to build the query object.
     for (const [key, value] of Object.entries(queryParams)) {
       if (value !== undefined) {
         switch (key) {
-          case "supervisorId": // Filter by supervisor ID.
-            query.supervisorId = value;
+          case "classId": // Filter by class ID.
+            query.lesson.classId = parseInt(value);
             break;
-          case "search": // Filter by class name (case-insensitive).
-            query.name = { contains: value, mode: "insensitive" };
+          case "teacherId": // Filter by teacher ID.
+            query.lesson.teacherId = value;
+            break;
+          case "search": // Filter by subject name (case-insensitive).
+            query.lesson.subject = {
+              name: { contains: value, mode: "insensitive" },
+            };
             break;
           default:
             break;
@@ -109,24 +124,60 @@ const ClassListPage = async ({
     }
   }
 
-  const [data, count] = await prisma.$transaction([
-    prisma.class.findMany({
+  // ROLE CONDITIONS
+  switch (role) {
+    case "admin":
+      break; // Admin has access to all assignments.
+    case "teacher":
+      query.lesson.teacherId = currentUserId!; // Filter assignments by the teacher's ID.
+      break;
+    case "student":
+      query.lesson.class = {
+        students: {
+          some: {
+            id: currentUserId!, // Filter assignments by the student's ID.
+          },
+        },
+      };
+      break;
+    case "parent":
+      query.lesson.class = {
+        students: {
+          some: {
+            parentId: currentUserId!, // Filter assignments by the parent's ID.
+          },
+        },
+      };
+      break;
+    default:
+      break;
+  }
+
+  const [data, count] = await prisma.$transaction([ // Fetching assignment data and total count using Prisma transactions.
+    prisma.assignment.findMany({
       where: query, // Applying filters.
       include: {
-        supervisor: true, // Include related supervisor data.
-        grade: true, // Include related grade data.
+        lesson: {
+          select: {
+            subject: { select: { name: true } }, // Include subject name.
+            teacher: { select: { name: true, surname: true } }, // Include teacher's name and surname.
+            class: { select: { name: true } }, // Include class name.
+          },
+        },
       },
       take: ITEM_PER_PAGE, // Limit the number of items per page.
       skip: ITEM_PER_PAGE * (p - 1), // Skip items for pagination.
     }),
-    prisma.class.count({ where: query }), // Count the total number of classes matching the query.
+    prisma.assignment.count({ where: query }), // Count the total number of assignments matching the query.
   ]);
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0"> {/* Main container */}
       {/* TOP */}
       <div className="flex items-center justify-between"> {/* Header section */}
-        <h1 className="hidden md:block text-lg font-semibold">All Classes</h1> {/* Page title */}
+        <h1 className="hidden md:block text-lg font-semibold">
+          All Assignments
+        </h1> {/* Page title */}
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch /> {/* Search bar */}
           <div className="flex items-center gap-4 self-end">
@@ -136,16 +187,18 @@ const ClassListPage = async ({
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-lamaYellow">
               <Image src="/sort.png" alt="" width={14} height={14} /> {/* Sort button */}
             </button>
-            {role === "admin" && <FormContainer table="class" type="create" />} {/* Create class button (admin only) */}
+            {(role === "admin" || role === "teacher") && (
+              <FormModal table="assignment" type="create" /> /* Create assignment button (admin or teacher only) */
+            )}
           </div>
         </div>
       </div>
       {/* LIST */}
-      <Table columns={columns} renderRow={renderRow} data={data} /> {/* Table displaying class data */}
+      <Table columns={columns} renderRow={renderRow} data={data} /> {/* Table displaying assignment data */}
       {/* PAGINATION */}
       <Pagination page={p} count={count} /> {/* Pagination controls */}
     </div>
   );
 };
 
-export default ClassListPage; // Exporting the component as default.
+export default AssignmentListPage; // Exporting the component as default.

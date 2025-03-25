@@ -4,20 +4,19 @@ import Table from "@/components/Table"; // Importing a reusable table component 
 import TableSearch from "@/components/TableSearch"; // Importing a search bar component for filtering table data.
 import prisma from "@/lib/prisma"; // Importing Prisma client for database queries.
 import { ITEM_PER_PAGE } from "@/lib/settings"; // Importing a constant for the number of items per page.
-import { Parent, Prisma, Student } from "@prisma/client"; // Importing Prisma types for type safety.
+import { Class, Event, Prisma } from "@prisma/client"; // Importing Prisma types for type safety.
 import Image from "next/image"; // Importing Next.js Image component for optimized image rendering.
-
 import { getAuth } from "firebase/auth"; // Importing Firebase Authentication to manage user authentication.
 import {jwtDecode} from "jwt-decode"; // Importing a library to decode Firebase ID tokens to access custom claims.
 
-type ParentList = Parent & { students: Student[] }; // Defining a type that combines Parent and Student data.
+type EventList = Event & { class: Class }; // Defining a type that combines Event and Class data.
 
 type DecodedToken = {
   role?: string; // Define the structure of the decoded token. Add other claims if needed.
   [key: string]: unknown; // Allow additional claims if necessary.
 };
 
-const ParentListPage = async ({
+const EventListPage = async ({
   searchParams,
 }: {
   searchParams: { [key: string]: string | undefined }; // Defining the type for search parameters.
@@ -32,28 +31,33 @@ const ParentListPage = async ({
   const token = await user.getIdToken(); // Get the Firebase ID token for the logged-in user.
   const decodedToken: DecodedToken = jwtDecode<DecodedToken>(token); // Decode the token to access custom claims.
   const role = decodedToken.role; // Extract the user's role from the custom claims.
+  const currentUserId = user.uid; // Get the user's unique ID from Firebase.
 
   const columns = [
     {
-      header: "Info", // Column header.
-      accessor: "info", // Key to access data for this column.
+      header: "Title", // Column header.
+      accessor: "title", // Key to access data for this column.
     },
     {
-      header: "Student Names", // Column header.
-      accessor: "students", // Key to access data for this column.
+      header: "Class", // Column header.
+      accessor: "class", // Key to access data for this column.
+    },
+    {
+      header: "Date", // Column header.
+      accessor: "date", // Key to access data for this column.
       className: "hidden md:table-cell", // Hides this column on smaller screens.
     },
     {
-      header: "Phone", // Column header.
-      accessor: "phone", // Key to access data for this column.
-      className: "hidden lg:table-cell", // Hides this column on smaller screens.
+      header: "Start Time", // Column header.
+      accessor: "startTime", // Key to access data for this column.
+      className: "hidden md:table-cell", // Hides this column on smaller screens.
     },
     {
-      header: "Address", // Column header.
-      accessor: "address", // Key to access data for this column.
-      className: "hidden lg:table-cell", // Hides this column on smaller screens.
+      header: "End Time", // Column header.
+      accessor: "endTime", // Key to access data for this column.
+      className: "hidden md:table-cell", // Hides this column on smaller screens.
     },
-    ...(role === "admin" // If the user is an admin, add an "Actions" column.
+    ...(role === "admin"
       ? [
           {
             header: "Actions", // Column header.
@@ -63,28 +67,36 @@ const ParentListPage = async ({
       : []),
   ];
 
-  const renderRow = (item: ParentList) => (
+  const renderRow = (item: EventList) => (
     <tr
       key={item.id} // Unique key for each row.
       className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight" // Styling for the row.
     >
-      <td className="flex items-center gap-4 p-4"> {/* Cell for parent info */}
-        <div className="flex flex-col">
-          <h3 className="font-semibold">{item.name}</h3> {/* Parent's name */}
-          <p className="text-xs text-gray-500">{item?.email}</p> {/* Parent's email */}
-        </div>
+      <td className="flex items-center gap-4 p-4">{item.title}</td> {/* Event title */}
+      <td>{item.class?.name || "-"}</td> {/* Class name or "-" if no class */}
+      <td className="hidden md:table-cell">
+        {new Intl.DateTimeFormat("en-US").format(item.date)} {/* Formatted date */}
       </td>
       <td className="hidden md:table-cell">
-        {item.students.map((student) => student.name).join(",")} {/* List of student names */}
+        {item.startTime.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })} {/* Formatted start time */}
       </td>
-      <td className="hidden md:table-cell">{item.phone}</td> {/* Parent's phone number */}
-      <td className="hidden md:table-cell">{item.address}</td> {/* Parent's address */}
+      <td className="hidden md:table-cell">
+        {item.endTime.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })} {/* Formatted end time */}
+      </td>
       <td>
         <div className="flex items-center gap-2"> {/* Actions column */}
           {role === "admin" && ( // If the user is an admin, show the update and delete buttons.
             <>
-              <FormContainer table="parent" type="update" data={item} /> {/* Update button */}
-              <FormContainer table="parent" type="delete" id={item.id} /> {/* Delete button */}
+              <FormContainer table="event" type="update" data={item} /> {/* Update button */}
+              <FormContainer table="event" type="delete" id={item.id} /> {/* Delete button */}
             </>
           )}
         </div>
@@ -96,14 +108,14 @@ const ParentListPage = async ({
 
   const p = page ? parseInt(page) : 1; // Parsing the page number or defaulting to 1.
 
-  const query: Prisma.ParentWhereInput = {}; // Initializing a query object for filtering parents.
+  const query: Prisma.EventWhereInput = {}; // Initializing a query object for filtering events.
 
   if (queryParams) { // Loop through query parameters to build the query object.
     for (const [key, value] of Object.entries(queryParams)) {
       if (value !== undefined) {
         switch (key) {
-          case "search": // Filter by parent name (case-insensitive).
-            query.name = { contains: value, mode: "insensitive" };
+          case "search": // Filter by event title (case-insensitive).
+            query.title = { contains: value, mode: "insensitive" };
             break;
           default:
             break;
@@ -112,23 +124,37 @@ const ParentListPage = async ({
     }
   }
 
-  const [data, count] = await prisma.$transaction([ // Fetching parent data and total count using Prisma transactions.
-    prisma.parent.findMany({
+  // ROLE CONDITIONS
+  const roleConditions = {
+    teacher: { lessons: { some: { teacherId: currentUserId! } } }, // Filter for teachers.
+    student: { students: { some: { id: currentUserId! } } }, // Filter for students.
+    parent: { students: { some: { parentId: currentUserId! } } }, // Filter for parents.
+  };
+
+  query.OR = [
+    { classId: null }, // Include events with no class assigned.
+    {
+      class: roleConditions[role as keyof typeof roleConditions] || {}, // Apply role-based conditions.
+    },
+  ];
+
+  const [data, count] = await prisma.$transaction([ // Fetching event data and total count using Prisma transactions.
+    prisma.event.findMany({
       where: query, // Applying filters.
       include: {
-        students: true, // Include related student data.
+        class: true, // Include related class data.
       },
       take: ITEM_PER_PAGE, // Limit the number of items per page.
       skip: ITEM_PER_PAGE * (p - 1), // Skip items for pagination.
     }),
-    prisma.parent.count({ where: query }), // Count the total number of parents matching the query.
+    prisma.event.count({ where: query }), // Count the total number of events matching the query.
   ]);
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0"> {/* Main container */}
       {/* TOP */}
       <div className="flex items-center justify-between"> {/* Header section */}
-        <h1 className="hidden md:block text-lg font-semibold">All Parents</h1> {/* Page title */}
+        <h1 className="hidden md:block text-lg font-semibold">All Events</h1> {/* Page title */}
         <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
           <TableSearch /> {/* Search bar */}
           <div className="flex items-center gap-4 self-end">
@@ -139,17 +165,17 @@ const ParentListPage = async ({
               <Image src="/sort.png" alt="" width={14} height={14} /> {/* Sort button */}
             </button>
             {role === "admin" && (
-              <FormContainer table="parent" type="create" /> /* Create parent button (admin only) */
+              <FormContainer table="event" type="create" /> /* Create event button (admin only) */
             )}
           </div>
         </div>
       </div>
       {/* LIST */}
-      <Table columns={columns} renderRow={renderRow} data={data} /> {/* Table displaying parent data */}
+      <Table columns={columns} renderRow={renderRow} data={data} /> {/* Table displaying event data */}
       {/* PAGINATION */}
       <Pagination page={p} count={count} /> {/* Pagination controls */}
     </div>
   );
 };
 
-export default ParentListPage; // Exporting the component as default.
+export default EventListPage; // Exporting the component as default.
