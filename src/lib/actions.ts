@@ -1,10 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache"; // Importing Next.js cache revalidation for dynamic updates.
+
 import {
-  ClassSchema,
-  ExamSchema,
-  StudentSchema,
   SubjectSchema,
   TeacherSchema,
 } from "./formValidationSchemas"; // Importing validation schemas for type safety.

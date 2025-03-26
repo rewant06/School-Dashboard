@@ -8,8 +8,7 @@ import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import {
   studentSchema,
   StudentSchema,
-  teacherSchema,
-  TeacherSchema,
+  
 } from "@/lib/formValidationSchemas";
 import { useFormState } from "react-dom";
 import {
